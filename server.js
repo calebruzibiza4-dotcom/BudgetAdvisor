@@ -30,36 +30,8 @@ const logError = (error) => {
   }
 };
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
-
-async function generateGeminiReply(apiKey, prompt) {
-  try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }]
-          }
-        ]
-      })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return { error: data.error?.message || 'Gemini request failed' };
-    }
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) return { error: 'Gemini returned no text' };
-
-    return { reply: text };
-  } catch (err) {
-    return { error: err.message || String(err) };
-  }
-}
+// The chat endpoint now returns hard-coded local finance advice only.
+// This ensures deterministic, logic-based responses without calling an external model.
 
 function buildFinancialAdvice(data) {
   const { currency_symbol, income, expenses, balance, savings_rate } = data;
@@ -121,33 +93,8 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: 'Missing financialData' });
     }
 
-    if (provider === 'local') {
       const localReply = buildFinancialAdvice(financialData);
-      return res.json({ reply: localReply, provider: 'local', fallback: false });
-    }
-
-    if (provider !== 'gemini') {
-      const localReply = buildFinancialAdvice(financialData);
-      return res.json({ reply: localReply, provider: 'local', fallback: false });
-    }
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      const localReply = buildFinancialAdvice(financialData);
-      return res.status(503).json({ reply: `${localReply}\n\nGemini key is not configured. Using local advisor.`, provider: 'local', fallback: true });
-    }
-
-    const prompt = buildBudgetPrompt(financialData, messages);
-    const result = await generateGeminiReply(apiKey, prompt);
-
-    if (result.error) {
-      console.error('Gemini API returned error:', result.error);
-      const fd = financialData || {};
-      const fallbackReply = buildFinancialAdvice(fd);
-      return res.json({ reply: `${fallbackReply}\n\nGemini error: ${result.error}. Showing local advice instead.`, provider: 'local', fallback: true });
-    }
-
-    return res.json({ reply: result.reply, provider: 'gemini', fallback: false });
+    return res.json({ reply: localReply, provider: 'local', fallback: false });
   } catch (error) {
     logError(error);
     const fd = req.body?.financialData || {};
