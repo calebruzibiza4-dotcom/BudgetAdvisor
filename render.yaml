@@ -9,6 +9,6 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: FRONTEND_ORIGIN
-        value: https://your-deployed-frontend-url.com
+        value: https://budget-advisor-jgl9.vercel.app
       - key: NODE_ENV
         value: production
