@@ -1,28 +1,33 @@
 # Budget Advisor
 
-A premium budget advisor app with a React + Vite client and an Express server.
+A premium budget advisor app with a React + Vite frontend and an Express backend.
 
 ## Structure
 
-- client/: React + Vite frontend
-- server/: Express API server
+- `index.html`, `src/`, `vite.config.js`: React + Vite frontend
+- `server.js`: Express API backend
 
 ## Run locally
 
-### Client
-
 ```bash
-cd client
 npm install
 npm run dev
 ```
 
-### Server
+The Vite frontend can make API requests to the backend at `http://localhost:5000` when the backend is started with:
 
 ```bash
-cd server
-npm install
-npm run start
+npm start
 ```
 
-The Vite client proxies API requests to the server at http://localhost:3000.
+## Environment Variables
+
+Create a `.env` file for local development with:
+
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+FRONTEND_ORIGIN=http://localhost:5173
+NODE_ENV=development
+```
+
+The backend also exposes a health endpoint at `/health`.

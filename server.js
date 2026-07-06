@@ -1,17 +1,34 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 
 const app = express();
 app.use(express.json());
 
-// Global handlers to prevent the Node process from exiting on unexpected errors
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught exception:', err);
-});
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'https://budget-advisor-jgl9.vercel.app';
+const allowedOrigins = [FRONTEND_ORIGIN];
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin) || (process.env.NODE_ENV !== 'production' && origin?.includes('localhost'))) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type'],
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
+const logError = (error) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.error(error);
+  }
+};
 
 const GEMINI_MODEL = 'gemini-2.0-flash';
 
@@ -114,10 +131,10 @@ app.post('/api/chat', async (req, res) => {
       return res.json({ reply: localReply, provider: 'local', fallback: false });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       const localReply = buildFinancialAdvice(financialData);
-      return res.json({ reply: `${localReply}\n\nGemini key is not configured. Using local advisor.`, provider: 'local', fallback: true });
+      return res.status(503).json({ reply: `${localReply}\n\nGemini key is not configured. Using local advisor.`, provider: 'local', fallback: true });
     }
 
     const prompt = buildBudgetPrompt(financialData, messages);
@@ -132,9 +149,8 @@ app.post('/api/chat', async (req, res) => {
 
     return res.json({ reply: result.reply, provider: 'gemini', fallback: false });
   } catch (error) {
-    console.error('Gemini error:', error);
-    // financialData may be undefined here (out of try scope) — use request body defensively
-    const fd = (req && req.body && req.body.financialData) ? req.body.financialData : {};
+    logError(error);
+    const fd = req.body?.financialData || {};
     const fallbackReply = buildFinancialAdvice(fd);
     return res.json({ reply: `${fallbackReply}\n\nGemini is temporarily unavailable, so this local budget advice is being shown instead.`, provider: 'local', fallback: true });
   }
@@ -144,9 +160,26 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-const PORT = process.env.PORT || 3000;
+app.use((req, res, next) => {
+  const error = new Error('Not Found');
+  error.status = 404;
+  next(error);
+});
+
+app.use((err, req, res, next) => {
+  const status = err.status || 500;
+  const payload = { error: err.message || 'Internal server error' };
+  if (process.env.NODE_ENV !== 'production' && err.stack) {
+    payload.stack = err.stack;
+  }
+  res.status(status).json(payload);
+});
+
+const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
-  console.log(`Proxy listening on http://localhost:${PORT}`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`Server listening on http://localhost:${PORT}`);
+  }
 });
 
 server.on('error', (err) => {
