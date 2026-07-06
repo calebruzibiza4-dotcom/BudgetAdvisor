@@ -25,9 +25,12 @@ npm start
 Create a `.env` file for local development with:
 
 ```env
+VITE_API_URL=
 GEMINI_API_KEY=your_gemini_api_key_here
 FRONTEND_ORIGIN=http://localhost:5173
 NODE_ENV=development
 ```
+
+If your frontend and backend are deployed separately, set `VITE_API_URL` to your backend base URL so the app can call `/api/chat` correctly.
 
 The backend also exposes a health endpoint at `/health`.
